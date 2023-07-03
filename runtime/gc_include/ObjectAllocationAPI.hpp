@@ -409,7 +409,7 @@ public:
 				objectHeader->clazz = (uint32_t)(uintptr_t)clazz;
 			}
 			if (initializeSlots) {
-				memset(objectHeader + 1, 0, dataSize);
+				memset(objectHeader + 1, 0, dataSize); // we set to zero access counters
 			}
 		} else {
 			J9ObjectFull *objectHeader = (J9ObjectFull*) instance;
@@ -419,7 +419,7 @@ public:
 				objectHeader->clazz = (uintptr_t)clazz;
 			}
 			if (initializeSlots) {
-				memset(objectHeader + 1, 0, dataSize);
+				memset(objectHeader + 1, 0, dataSize); // we set to zero access counters
 			}
 		}
 

@@ -1610,8 +1610,10 @@ typedef struct J9ROMFieldOffsetWalkState {
 	U_32 walkFlags;
 	UDATA lockOffset;
 	UDATA finalizeLinkOffset;
+	UDATA accessCountOffset;
 	struct J9HiddenInstanceField hiddenLockwordField;
 	struct J9HiddenInstanceField hiddenFinalizeLinkField;
+	struct J9HiddenInstanceField hiddenAccessCountField;
 	struct J9HiddenInstanceField* hiddenInstanceFields[J9VM_MAX_HIDDEN_FIELDS_PER_CLASS];
 	UDATA hiddenInstanceFieldCount;
 	UDATA hiddenInstanceFieldWalkIndex;
@@ -2949,7 +2951,7 @@ typedef struct J9Object {
 	 *     under the balanced GC policy.
 	 */
 	j9objectclass_t clazz;
-	uint32_t accessCount;
+//	uint64_t accessCount;
 } J9Object;
 
 #define OBJECT_HEADER_FORWARDED  1
@@ -3031,18 +3033,22 @@ typedef struct J9Object {
 
 typedef struct J9ObjectCompressed {
 	U_32 clazz;
+//	uint64_t accessCount;
 } J9ObjectCompressed;
 
 typedef struct J9ObjectFull {
 	UDATA clazz;
+//	uint64_t accessCount;
 } J9ObjectFull;
 
 typedef struct J9IndexableObject {
 	j9objectclass_t clazz;
+//	uint64_t accessCount;
 } J9IndexableObject;
 
 typedef struct J9IndexableObjectContiguous {
 	j9objectclass_t clazz;
+//	uint64_t accessCount;
 	U_32 size;
 #if defined(J9VM_ENV_DATA64) && defined(OMR_GC_FULL_POINTERS)
 	U_32 padding;
@@ -3054,6 +3060,7 @@ typedef struct J9IndexableObjectContiguous {
 
 typedef struct J9IndexableObjectContiguousCompressed {
 	U_32 clazz;
+//	uint64_t accessCount;
 	U_32 size;
 #if defined(J9VM_ENV_DATA64)
 	void *dataAddr;
@@ -3062,6 +3069,7 @@ typedef struct J9IndexableObjectContiguousCompressed {
 
 typedef struct J9IndexableObjectContiguousFull {
 	UDATA clazz;
+//	uint64_t accessCount;
 	U_32 size;
 #if defined(J9VM_ENV_DATA64)
 	U_32 padding;
@@ -3071,6 +3079,7 @@ typedef struct J9IndexableObjectContiguousFull {
 
 typedef struct J9IndexableObjectDiscontiguous {
 	j9objectclass_t clazz;
+//	uint64_t accessCount;
 	U_32 mustBeZero;
 	U_32 size;
 #if defined(OMR_GC_COMPRESSED_POINTERS) || !defined(J9VM_ENV_DATA64)
@@ -3083,6 +3092,7 @@ typedef struct J9IndexableObjectDiscontiguous {
 
 typedef struct J9IndexableObjectDiscontiguousCompressed {
 	U_32 clazz;
+//	uint64_t accessCount;
 	U_32 mustBeZero;
 	U_32 size;
 	U_32 padding;
@@ -3093,6 +3103,7 @@ typedef struct J9IndexableObjectDiscontiguousCompressed {
 
 typedef struct J9IndexableObjectDiscontiguousFull {
 	UDATA clazz;
+//	uint64_t accessCount;
 	U_32 mustBeZero;
 	U_32 size;
 #if !defined(J9VM_ENV_DATA64)
@@ -3209,6 +3220,7 @@ typedef struct J9Class {
 	IDATA backfillOffset;
 	struct J9Class* replacedClass;
 	UDATA finalizeLinkOffset;
+	UDATA accessCountOffset;
 	struct J9Class* nextClassInSegment;
 	struct J9ConstantPool *ramConstantPool;
 	j9object_t* callSites;
@@ -3300,6 +3312,7 @@ typedef struct J9ArrayClass {
 	IDATA backfillOffset;
 	struct J9Class* replacedClass;
 	UDATA finalizeLinkOffset;
+	UDATA accessCountOffset;
 	struct J9Class* nextClassInSegment;
 	UDATA* ramConstantPool;
 	j9object_t* callSites;
@@ -5671,6 +5684,7 @@ typedef struct J9JavaVM {
 	omrthread_monitor_t hiddenInstanceFieldsMutex;
 	struct J9ROMFieldShape* hiddenLockwordFieldShape;
 	struct J9ROMFieldShape* hiddenFinalizeLinkFieldShape;
+	struct J9ROMFieldShape* hiddenAccessCountFieldShape;
 	UDATA modulePointerOffset;
 	omrthread_monitor_t jniCriticalLock;
 	UDATA jniCriticalResponseCount;

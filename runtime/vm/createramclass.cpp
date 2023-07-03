@@ -2965,6 +2965,7 @@ fail:
 					ramClass->backfillOffset = classBeingRedefined->backfillOffset;
 					ramClass->finalizeLinkOffset = classBeingRedefined->finalizeLinkOffset;
 					ramClass->lockOffset = classBeingRedefined->lockOffset;
+					ramClass->accessCountOffset = classBeingRedefined->accessCountOffset;
 				} else {
 					instanceDescription = allocationRequests[RAM_INSTANCE_DESCRIPTION_FRAGMENT].address;
 					iTable = allocationRequests[RAM_ITABLE_FRAGMENT].address;

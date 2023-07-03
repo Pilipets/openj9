@@ -1066,6 +1066,7 @@ obj:
 			instance = _vm->memoryManagerFunctions->J9AllocateObject(_currentThread, clazz, J9_GC_ALLOCATE_OBJECT_NON_INSTRUMENTABLE);
 			VMStructHasBeenUpdated(REGISTER_ARGS);
 		}
+//		instance->accessCount = 0;
 		return instance;
 	}
 
