@@ -46,10 +46,14 @@
 
 #define J9OAB_MIXEDOBJECT_EA(object, offset, type) (type *)(((U_8 *)(object)) + offset)
 
-inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject)
+inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject, bool indexable = false)
 {
 	J9Class *clazz = J9OBJECT_CLAZZ(vmThread, srcObject);
-	U_32* accessCount = J9OAB_MIXEDOBJECT_EA(srcObject, clazz->accessCountOffset, U_32);
+	U_32 *accessCount = J9OAB_MIXEDOBJECT_EA(srcObject, clazz->accessCountOffset, U_32);
+	if (indexable)
+	{
+		printf("My log index increment for %p at %lu with value=%u\n", srcObject, clazz->accessCountOffset, *accessCount);
+	}
 	if (*accessCount != UINT32_MAX) ++(*accessCount);
 }
 
@@ -58,9 +62,8 @@ class MM_ObjectAccessBarrierAPI
 	friend class MM_ObjectAccessBarrier;
 	friend class MM_RealtimeAccessBarrier;
 
-/* Data members & types */
+	/* Data members & types */
 public:
-
 private:
 	const UDATA _writeBarrierType;
 	const UDATA _readBarrierType;
@@ -73,28 +76,30 @@ protected:
 	bool const _compressObjectReferences;
 #endif /* defined(OMR_GC_COMPRESSED_POINTERS) && defined(OMR_GC_FULL_POINTERS) */
 
-/* Methods */
+	/* Methods */
 public:
-
 	/**
 	 * Create an instance.
 	 */
 	MM_ObjectAccessBarrierAPI(J9VMThread *currentThread)
-		: _writeBarrierType(currentThread->javaVM->gcWriteBarrierType)
-		, _readBarrierType(currentThread->javaVM->gcReadBarrierType)
+		: _writeBarrierType(currentThread->javaVM->gcWriteBarrierType), _readBarrierType(currentThread->javaVM->gcReadBarrierType)
 #if defined(OMR_GC_COMPRESSED_POINTERS)
-		, _compressedPointersShift(currentThread->javaVM->compressedPointersShift)
+		  ,
+		  _compressedPointersShift(currentThread->javaVM->compressedPointersShift)
 #endif /* defined(OMR_GC_COMPRESSED_POINTERS) */
 #if defined(OMR_GC_COMPRESSED_POINTERS) && defined(OMR_GC_FULL_POINTERS)
-		, _compressObjectReferences(J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(currentThread))
+		  ,
+		  _compressObjectReferences(J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(currentThread))
 #endif /* defined(OMR_GC_COMPRESSED_POINTERS) && defined(OMR_GC_FULL_POINTERS) */
-	{}
+	{
+	}
 
 	/**
 	 * Return back true if object references are compressed
 	 * @return true, if object references are compressed
 	 */
-	MMINLINE bool compressObjectReferences() {
+	MMINLINE bool compressObjectReferences()
+	{
 		return OMR_COMPRESS_OBJECT_REFERENCES(_compressObjectReferences);
 	}
 
@@ -109,9 +114,11 @@ public:
 		UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 		UDATA objectDelta = (UDATA)object - base;
 		UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-		if (objectDelta < size) {
+		if (objectDelta < size)
+		{
 			/* object is old so check for concurrent barrier */
-			if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE)) {
+			if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE))
+			{
 				/* concurrent barrier is enabled so dirty the card for object */
 				dirtyCard(vmThread, objectDelta);
 			}
@@ -132,7 +139,8 @@ public:
 		UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 		UDATA objectDelta = (UDATA)object - base;
 		UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-		if (objectDelta < size) {
+		if (objectDelta < size)
+		{
 			/* generational barrier is required if object is old*/
 			rememberObject(vmThread, object);
 		}
@@ -149,7 +157,8 @@ public:
 		UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 		UDATA objectDelta = (UDATA)object - base;
 		UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-		if (objectDelta < size) {
+		if (objectDelta < size)
+		{
 			/* Object is within the barrier range.  Dirty the card */
 			dirtyCard(vmThread, objectDelta);
 		}
@@ -166,9 +175,11 @@ public:
 		UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 		UDATA objectDelta = (UDATA)object - base;
 		UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-		if (objectDelta < size) {
+		if (objectDelta < size)
+		{
 			/* object is old so check for concurrent barrier */
-			if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE)) {
+			if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE))
+			{
 				/* concurrent barrier is enabled so dirty the card for object */
 				dirtyCard(vmThread, objectDelta);
 			}
@@ -187,7 +198,8 @@ public:
 	internalPostObjectStoreCardTableAndGenerational(J9VMThread *vmThread, j9object_t object, j9object_t value)
 	{
 		/* if value is NULL neither barrier is required */
-		if (NULL != value) {
+		if (NULL != value)
+		{
 			/* Check to see if object is old.  If object is not old neither barrier is required
 			 * if ((object - vmThread->omrVMThread->heapBaseForBarrierRange0) < vmThread->omrVMThread->heapSizeForBarrierRange0) then old
 			 *
@@ -196,9 +208,11 @@ public:
 			UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 			UDATA objectDelta = (UDATA)object - base;
 			UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-			if (objectDelta < size) {
+			if (objectDelta < size)
+			{
 				/* object is old so check for concurrent barrier */
-				if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE)) {
+				if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE))
+				{
 					/* concurrent barrier is enabled so dirty the card for object */
 					dirtyCard(vmThread, objectDelta);
 				}
@@ -206,7 +220,8 @@ public:
 				/* generational barrier is required if object is old and value is new */
 				/* Check to see if value is new using the same optimization as above */
 				UDATA valueDelta = (UDATA)value - base;
-				if (valueDelta >= size) {
+				if (valueDelta >= size)
+				{
 					/* value is in new space so do generational barrier */
 					rememberObject(vmThread, object);
 				}
@@ -226,7 +241,8 @@ public:
 	internalPostObjectStoreCardTable(J9VMThread *vmThread, j9object_t object, j9object_t value)
 	{
 		/* if value is NULL neither barrier is required */
-		if (NULL != value) {
+		if (NULL != value)
+		{
 			/* Check to see if object is old.
 			 * if ((object - vmThread->omrVMThread->heapBaseForBarrierRange0) < vmThread->omrVMThread->heapSizeForBarrierRange0) then old
 			 *
@@ -235,9 +251,11 @@ public:
 			UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 			UDATA objectDelta = (UDATA)object - base;
 			UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-			if (objectDelta < size) {
+			if (objectDelta < size)
+			{
 				/* object is old so check for concurrent barrier */
-				if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE)) {
+				if (0 != (vmThread->privateFlags & J9_PRIVATE_FLAGS_CONCURRENT_MARK_ACTIVE))
+				{
 					/* concurrent barrier is enabled so dirty the card for object */
 					dirtyCard(vmThread, objectDelta);
 				}
@@ -257,7 +275,8 @@ public:
 	internalPostObjectStoreCardTableIncremental(J9VMThread *vmThread, j9object_t object, j9object_t value)
 	{
 		/* if value is NULL neither barrier is required */
-		if (NULL != value) {
+		if (NULL != value)
+		{
 			/* Check to see if object is within the barrier range.
 			 * if ((object - vmThread->omrVMThread->heapBaseForBarrierRange0) < vmThread->omrVMThread->heapSizeForBarrierRange0)
 			 *
@@ -266,7 +285,8 @@ public:
 			UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 			UDATA objectDelta = (UDATA)object - base;
 			UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-			if (objectDelta < size) {
+			if (objectDelta < size)
+			{
 				/* Object is within the barrier range.  Dirty the card */
 				dirtyCard(vmThread, objectDelta);
 			}
@@ -285,7 +305,8 @@ public:
 	internalPostObjectStoreGenerational(J9VMThread *vmThread, j9object_t object, j9object_t value)
 	{
 		/* if value is NULL neither barrier is required */
-		if (NULL != value) {
+		if (NULL != value)
+		{
 			/* Check to see if object is old.
 			 * if ((object - vmThread->omrVMThread->heapBaseForBarrierRange0) < vmThread->omrVMThread->heapSizeForBarrierRange0) then old
 			 *
@@ -294,11 +315,13 @@ public:
 			UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 			UDATA objectDelta = (UDATA)object - base;
 			UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-			if (objectDelta < size) {
+			if (objectDelta < size)
+			{
 				/* generational barrier is required if object is old and value is new */
 				/* Check to see if value is new using the same optimization as above */
 				UDATA valueDelta = (UDATA)value - base;
-				if (valueDelta >= size) {
+				if (valueDelta >= size)
+				{
 					/* value is in new space so do generational barrier */
 					rememberObject(vmThread, object);
 				}
@@ -325,7 +348,8 @@ public:
 		UDATA base = (UDATA)vmThread->omrVMThread->heapBaseForBarrierRange0;
 		UDATA objectDelta = (UDATA)object - base;
 		UDATA size = vmThread->omrVMThread->heapSizeForBarrierRange0;
-		if (objectDelta < size) {
+		if (objectDelta < size)
+		{
 			rememberObject(vmThread, object);
 		}
 	}
@@ -339,9 +363,11 @@ public:
 	{
 		j9objectmonitor_t *lockwordAddress = NULL;
 		J9Class *clazz = J9OBJECT_CLAZZ(currentThread, object);
-		if (!J9_IS_J9CLASS_VALUETYPE(clazz)) {
+		if (!J9_IS_J9CLASS_VALUETYPE(clazz))
+		{
 			UDATA lockOffset = clazz->lockOffset;
-			if ((IDATA) lockOffset >= 0) {
+			if ((IDATA)lockOffset >= 0)
+			{
 				lockwordAddress = (j9objectmonitor_t *)(((U_8 *)object) + lockOffset);
 			}
 		}
@@ -352,17 +378,23 @@ public:
 	cloneArray(J9VMThread *currentThread, j9object_t original, j9object_t copy, J9Class *objectClass, U_32 size, MM_objectMapFunction objectMapFunction = NULL, void *objectMapData = NULL, bool initializeLockWord = true)
 	{
 		/* Note: initializeLockWord is ignored as arrays never have inline lockwords */
-#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) 
-		currentThread->javaVM->memoryManagerFunctions->j9gc_objaccess_cloneIndexableObject(currentThread, (J9IndexableObject*)original, (J9IndexableObject*)copy, objectMapFunction, objectMapData);
-#else /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
-		if (OBJECT_HEADER_SHAPE_POINTERS == J9CLASS_SHAPE(objectClass)) {
-			if (NULL != objectMapFunction) {
-				currentThread->javaVM->memoryManagerFunctions->j9gc_objaccess_cloneIndexableObject(currentThread, (J9IndexableObject*)original, (J9IndexableObject*)copy, objectMapFunction, objectMapData);
-			} else {
+#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
+		currentThread->javaVM->memoryManagerFunctions->j9gc_objaccess_cloneIndexableObject(currentThread, (J9IndexableObject *)original, (J9IndexableObject *)copy, objectMapFunction, objectMapData);
+#else  /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
+		if (OBJECT_HEADER_SHAPE_POINTERS == J9CLASS_SHAPE(objectClass))
+		{
+			if (NULL != objectMapFunction)
+			{
+				currentThread->javaVM->memoryManagerFunctions->j9gc_objaccess_cloneIndexableObject(currentThread, (J9IndexableObject *)original, (J9IndexableObject *)copy, objectMapFunction, objectMapData);
+			}
+			else
+			{
 				VM_ArrayCopyHelpers::referenceArrayCopy(currentThread, original, 0, copy, 0, size);
 			}
-		} else {
-			VM_ArrayCopyHelpers::primitiveArrayCopy(currentThread, original, 0, copy, 0, size, (((J9ROMArrayClass*)objectClass->romClass)->arrayShape & 0x0000FFFF));
+		}
+		else
+		{
+			VM_ArrayCopyHelpers::primitiveArrayCopy(currentThread, original, 0, copy, 0, size, (((J9ROMArrayClass *)objectClass->romClass)->arrayShape & 0x0000FFFF));
 		}
 #endif /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
 	}
@@ -387,14 +419,14 @@ public:
 		copyObjectFields(currentThread, objectClass, original, offset, copy, offset, objectMapFunction, objectMapData, initializeLockWord);
 	}
 
-	VMINLINE void 
+	VMINLINE void
 	copyObjectFieldsToFlattenedArrayElement(J9VMThread *vmThread, J9ArrayClass *arrayClazz, j9object_t srcObject, J9IndexableObject *arrayRef, UDATA index)
 	{
 		/* TODO optimizations for non-arraylet path will be added in the future */
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_copyObjectFieldsToFlattenedArrayElement(vmThread, arrayClazz, srcObject, arrayRef, (I_32)index);
 	}
-	
-	VMINLINE void 
+
+	VMINLINE void
 	copyObjectFieldsFromFlattenedArrayElement(J9VMThread *vmThread, J9ArrayClass *arrayClazz, j9object_t destObject, J9IndexableObject *arrayRef, UDATA index)
 	{
 		/* TODO optimizations for non-arraylet path will be added in the future */
@@ -406,15 +438,18 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_structuralCompareFlattenedObjects(vmThread, valueClass, lhsObject, rhsObject, startOffset);
-#else /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
+#else  /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
 		bool hasReferences = J9CLASS_HAS_REFERENCES(valueClass);
-		if (hasReferences && (j9gc_modron_readbar_none != _readBarrierType)) {
+		if (hasReferences && (j9gc_modron_readbar_none != _readBarrierType))
+		{
 			return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_structuralCompareFlattenedObjects(vmThread, valueClass, lhsObject, rhsObject, startOffset);
-		} else {
+		}
+		else
+		{
 			UDATA compareSize = mixedObjectGetDataSize(valueClass);
 			startOffset += J9CLASS_PREPADDING_SIZE(valueClass);
 
-			return (0 == memcmp((void*)((UDATA)lhsObject + startOffset), (void*)((UDATA)rhsObject + startOffset), (size_t)compareSize));
+			return (0 == memcmp((void *)((UDATA)lhsObject + startOffset), (void *)((UDATA)rhsObject + startOffset), (size_t)compareSize));
 		}
 #endif /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
 	}
@@ -438,35 +473,46 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_copyObjectFields(vmThread, objectClass, srcObject, srcOffset, destObject, destOffset, objectMapFunction, objectMapData, initializeLockWord);
-#else /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
+#else  /* defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) */
 		bool hasReferences = J9CLASS_HAS_REFERENCES(objectClass);
-		if (hasReferences && ((NULL != objectMapFunction) || (j9gc_modron_readbar_none != _readBarrierType) || (j9gc_modron_wrtbar_always == _writeBarrierType))) {
+		if (hasReferences && ((NULL != objectMapFunction) || (j9gc_modron_readbar_none != _readBarrierType) || (j9gc_modron_wrtbar_always == _writeBarrierType)))
+		{
 			vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_copyObjectFields(vmThread, objectClass, srcObject, srcOffset, destObject, destOffset, objectMapFunction, objectMapData, initializeLockWord);
-		} else {
+		}
+		else
+		{
 			UDATA offset = 0;
 			UDATA limit = mixedObjectGetDataSize(objectClass);
 
-			if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-				while (offset < limit) {
-					*(uint32_t*)((UDATA)destObject + offset + destOffset) = *(uint32_t*)((UDATA)srcObject + offset + srcOffset);
+			if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+			{
+				while (offset < limit)
+				{
+					*(uint32_t *)((UDATA)destObject + offset + destOffset) = *(uint32_t *)((UDATA)srcObject + offset + srcOffset);
 					offset += sizeof(uint32_t);
 				}
-			} else {
-				while (offset < limit) {
-					*(uintptr_t*)((UDATA)destObject + offset + destOffset) = *(uintptr_t*)((UDATA)srcObject + offset + srcOffset);
+			}
+			else
+			{
+				while (offset < limit)
+				{
+					*(uintptr_t *)((UDATA)destObject + offset + destOffset) = *(uintptr_t *)((UDATA)srcObject + offset + srcOffset);
 					offset += sizeof(uintptr_t);
 				}
 			}
 
-			if (initializeLockWord) {
+			if (initializeLockWord)
+			{
 				/* zero lockword, if present */
 				j9objectmonitor_t *lockwordAddress = getLockwordAddress(vmThread, destObject);
-				if (NULL != lockwordAddress) {
+				if (NULL != lockwordAddress)
+				{
 					j9objectmonitor_t lwValue = VM_ObjectMonitor::getInitialLockword(vmThread->javaVM, objectClass);
 					J9_STORE_LOCKWORD(vmThread, lockwordAddress, lwValue);
 				}
 			}
-			if (hasReferences) {
+			if (hasReferences)
+			{
 				postBatchStoreObject(vmThread, destObject);
 			}
 		}
@@ -490,9 +536,9 @@ public:
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadObject(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
 		fj9object_t *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, fj9object_t);
-		
+
 		preMixedObjectReadObject(vmThread, srcObject, actualAddress);
-				
+
 		protectIfVolatileBefore(isVolatile, true);
 		j9object_t result = readObjectImpl(vmThread, actualAddress, isVolatile);
 		protectIfVolatileAfter(isVolatile, true);
@@ -521,9 +567,12 @@ public:
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreObject(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreObject(vmThread, srcObject, srcOffset, value, isVolatile);
-		} else {
+		}
+		else
+		{
 			fj9object_t *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, fj9object_t);
 
 			preMixedObjectStoreObject(vmThread, srcObject, actualAddress, value);
@@ -560,10 +609,13 @@ public:
 
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndSwapObject(vmThread, destObject, (J9Object **)destAddress, compareObject, swapObject));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+#elif defined(J9VM_GC_COMBINATION_SPEC)
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndSwapObject(vmThread, destObject, (J9Object **)destAddress, compareObject, swapObject));
-		} else {
+		}
+		else
+		{
 			preMixedObjectReadObject(vmThread, destObject, destAddress);
 			preMixedObjectStoreObject(vmThread, destObject, destAddress, swapObject);
 
@@ -571,7 +623,8 @@ public:
 			bool result = compareAndSwapObjectImpl(vmThread, destAddress, compareObject, swapObject, isVolatile);
 			protectIfVolatileAfter(isVolatile, false);
 
-			if (result) {
+			if (result)
+			{
 				postMixedObjectStoreObject(vmThread, destObject, destAddress, swapObject);
 			}
 			return result;
@@ -603,9 +656,12 @@ public:
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndExchangeObject(vmThread, destObject, (J9Object **)destAddress, compareObject, swapObject);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndExchangeObject(vmThread, destObject, (J9Object **)destAddress, compareObject, swapObject);
-		} else {
+		}
+		else
+		{
 			preMixedObjectReadObject(vmThread, destObject, destAddress);
 			preMixedObjectStoreObject(vmThread, destObject, destAddress, swapObject);
 
@@ -615,7 +671,8 @@ public:
 
 			j9object_t result = internalConvertPointerFromToken(resultToken);
 
-			if (result == compareObject) {
+			if (result == compareObject)
+			{
 				postMixedObjectStoreObject(vmThread, destObject, destAddress, swapObject);
 			}
 			return result;
@@ -636,9 +693,10 @@ public:
 	VMINLINE I_32
 	inlineMixedObjectReadI32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadI32(vmThread, srcObject, srcOffset, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_32 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, I_32);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -665,9 +723,10 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreI32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, I_32 value, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreI32(vmThread, srcObject, srcOffset, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_32 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, I_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -689,9 +748,10 @@ public:
 	VMINLINE U_32
 	inlineMixedObjectReadU32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadU32(vmThread, srcObject, srcOffset, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, U_32);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -718,9 +778,10 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreU32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, U_32 value, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreU32(vmThread, srcObject, srcOffset, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, U_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -742,7 +803,7 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
@@ -750,7 +811,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectCompareAndSwapInt(vmThread, destObject, destOffset, compareValue, swapValue));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9OAB_MIXEDOBJECT_EA(destObject, destOffset, U_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -806,9 +867,10 @@ public:
 	VMINLINE I_64
 	inlineMixedObjectReadI64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadI64(vmThread, srcObject, srcOffset, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_64 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, I_64);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -835,9 +897,10 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreI64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, I_64 value, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreI64(vmThread, srcObject, srcOffset, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_64 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, I_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -859,9 +922,10 @@ public:
 	VMINLINE U_64
 	inlineMixedObjectReadU64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadU64(vmThread, srcObject, srcOffset, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, U_64);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -888,9 +952,10 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreU64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, U_64 value, bool isVolatile = false)
 	{
+		IncrementAccessCounter(vmThread, srcObject);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreU64(vmThread, srcObject, srcOffset, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9OAB_MIXEDOBJECT_EA(srcObject, srcOffset, U_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -912,7 +977,7 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
@@ -920,7 +985,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectCompareAndSwapLong(vmThread, destObject, destOffset, compareValue, swapValue));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9OAB_MIXEDOBJECT_EA(destObject, destOffset, U_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -976,11 +1041,9 @@ public:
 	VMINLINE j9object_t
 	inlineStaticReadObject(J9VMThread *vmThread, J9Class *clazz, j9object_t *srcAddress, bool isVolatile = false)
 	{
-		// TODO: We don't have actual object from what it's called
-		// IncrementAccessCounter(vmThread, *srcAddress);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticReadObject(vmThread, clazz, srcAddress, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		preStaticReadObject(vmThread, clazz, srcAddress);
 
@@ -1010,14 +1073,15 @@ public:
 	VMINLINE void
 	inlineStaticStoreObject(J9VMThread *vmThread, J9Class *clazz, j9object_t *srcAddress, j9object_t value, bool isVolatile = false)
 	{
-		// TODO: We don't have actual object from what it's called
-		// IncrementAccessCounter(vmThread, *srcAddress);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticStoreObject(vmThread, clazz, srcAddress, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+#elif defined(J9VM_GC_COMBINATION_SPEC)
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticStoreObject(vmThread, clazz, srcAddress, value, isVolatile);
-		} else {
+		}
+		else
+		{
 			j9object_t classObject = J9VM_J9CLASS_TO_HEAPCLASS(clazz);
 
 			preStaticStoreObject(vmThread, classObject, srcAddress, value);
@@ -1044,7 +1108,7 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
@@ -1052,10 +1116,13 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndSwapObject(vmThread, clazz, destAddress, compareObject, swapObject));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+#elif defined(J9VM_GC_COMBINATION_SPEC)
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndSwapObject(vmThread, clazz, destAddress, compareObject, swapObject));
-		} else {
+		}
+		else
+		{
 			j9object_t classObject = J9VM_J9CLASS_TO_HEAPCLASS(clazz);
 
 			preStaticReadObject(vmThread, clazz, destAddress);
@@ -1065,7 +1132,8 @@ public:
 			bool result = staticCompareAndSwapObjectImpl(vmThread, destAddress, compareObject, swapObject, isVolatile);
 			protectIfVolatileAfter(isVolatile, false);
 
-			if (result) {
+			if (result)
+			{
 				postStaticStoreObject(vmThread, classObject, destAddress, swapObject);
 			}
 			return result;
@@ -1095,9 +1163,12 @@ public:
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndExchangeObject(vmThread, clazz, destAddress, compareObject, swapObject);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndExchangeObject(vmThread, clazz, destAddress, compareObject, swapObject);
-		} else {
+		}
+		else
+		{
 			j9object_t classObject = J9VM_J9CLASS_TO_HEAPCLASS(clazz);
 
 			preStaticReadObject(vmThread, clazz, destAddress);
@@ -1107,7 +1178,8 @@ public:
 			j9object_t result = staticCompareAndExchangeObjectImpl(vmThread, destAddress, compareObject, swapObject, isVolatile);
 			protectIfVolatileAfter(isVolatile, false);
 
-			if (result == compareObject) {
+			if (result == compareObject)
+			{
 				postStaticStoreObject(vmThread, classObject, destAddress, swapObject);
 			}
 			return result;
@@ -1130,7 +1202,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticReadU32(vmThread, clazz, srcAddress, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, true);
 		U_32 result = readU32Impl(vmThread, srcAddress, isVolatile);
@@ -1158,7 +1230,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticStoreU32(vmThread, clazz, srcAddress, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, false);
 		storeU32Impl(vmThread, srcAddress, value, isVolatile);
@@ -1179,7 +1251,7 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
@@ -1187,7 +1259,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndSwapInt(vmThread, clazz, destAddress, compareValue, swapValue));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, false);
 		bool result = compareAndSwapU32Impl(vmThread, destAddress, compareValue, swapValue, isVolatile);
@@ -1242,10 +1314,10 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticReadU64(vmThread, clazz, srcAddress, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, true);
-		U_64 result =  readU64Impl(vmThread, srcAddress, isVolatile);
+		U_64 result = readU64Impl(vmThread, srcAddress, isVolatile);
 		protectIfVolatileAfter(isVolatile, true);
 
 		return result;
@@ -1270,7 +1342,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticStoreU64(vmThread, clazz, srcAddress, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, false);
 		storeU64Impl(vmThread, srcAddress, value, isVolatile);
@@ -1291,7 +1363,7 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
@@ -1299,7 +1371,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_staticCompareAndSwapLong(vmThread, clazz, destAddress, compareValue, swapValue));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 
 		protectIfVolatileBefore(isVolatile, false);
 		bool result = compareAndSwapU64Impl(vmThread, destAddress, compareValue, swapValue, isVolatile);
@@ -1356,7 +1428,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_8)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_8 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_8);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1384,7 +1456,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, (I_32)value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_8 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_8);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1409,7 +1481,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_8)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_8 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_8);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1437,7 +1509,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_8 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_8);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1462,7 +1534,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_16)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_16 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_16);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1490,7 +1562,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_16 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_16);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1515,7 +1587,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_16)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_16 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_16);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1543,7 +1615,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_16 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_16);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1568,7 +1640,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_32 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_32);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1596,7 +1668,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_32 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1621,7 +1693,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1649,7 +1721,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1671,13 +1743,13 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
 	inlineIndexableObjectCompareAndSwapU32(J9VMThread *vmThread, j9object_t destArray, UDATA destIndex, U_32 compareValue, U_32 swapValue, bool isVolatile = false)
 	{
-#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) || defined(J9VM_GC_COMBINATION_SPEC) 
+#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) || defined(J9VM_GC_COMBINATION_SPEC)
 		U_32 *actualAddress = J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_32);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1734,7 +1806,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_64 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_64);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1762,7 +1834,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		I_64 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, I_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1787,7 +1859,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_64);
 
 		protectIfVolatileBefore(isVolatile, true);
@@ -1815,7 +1887,7 @@ public:
 	{
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1837,13 +1909,13 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
 	inlineIndexableObjectCompareAndSwapU64(J9VMThread *vmThread, j9object_t destArray, UDATA destIndex, U_64 compareValue, U_64 swapValue, bool isVolatile = false)
 	{
-#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) || defined(J9VM_GC_COMBINATION_SPEC) 
+#if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER) || defined(J9VM_GC_COMBINATION_SPEC)
 		U_64 *actualAddress = J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_64);
 
 		protectIfVolatileBefore(isVolatile, false);
@@ -1898,14 +1970,18 @@ public:
 	VMINLINE j9object_t
 	inlineIndexableObjectReadObject(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
+		// IncrementAccessCounter(vmThread, srcArray, true);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadObject(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC)  
+#elif defined(J9VM_GC_COMBINATION_SPEC)
 		fj9object_t *actualAddress = NULL;
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
-		} else {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, UDATA);
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
+		}
+		else
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, UDATA);
 		}
 
 		preIndexableObjectReadObject(vmThread, srcArray, actualAddress);
@@ -1933,17 +2009,24 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreObject(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, j9object_t value, bool isVolatile = false)
 	{
+		// IncrementAccessCounter(vmThread, srcArray);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreObject(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+#elif defined(J9VM_GC_COMBINATION_SPEC)
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreObject(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
-		} else {
+		}
+		else
+		{
 			fj9object_t *actualAddress = NULL;
-			if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-				actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
-			} else {
-				actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, UDATA);
+			if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+			{
+				actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, U_32);
+			}
+			else
+			{
+				actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, srcArray, srcIndex, UDATA);
 			}
 
 			preIndexableObjectStoreObject(vmThread, srcArray, actualAddress, value);
@@ -1970,25 +2053,31 @@ public:
 	 * @param compareObject the object to compare with
 	 * @param swapObject the value to be swapped in
 	 * @param isVolatile non-zero if the field is volatile, zero otherwise
-	 * 
+	 *
 	 * @return true on success, false otherwise
 	 */
 	VMINLINE bool
 	inlineIndexableObjectCompareAndSwapObject(J9VMThread *vmThread, j9object_t destArray, UDATA destIndex, j9object_t compareObject, j9object_t swapObject, bool isVolatile = false)
 	{
 		fj9object_t *actualAddress = NULL;
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_32);
-		} else {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, destArray, destIndex, UDATA);
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_32);
+		}
+		else
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, destArray, destIndex, UDATA);
 		}
 
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndSwapObject(vmThread, destArray, (J9Object **)actualAddress, compareObject, swapObject));
-#elif defined(J9VM_GC_COMBINATION_SPEC) 
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+#elif defined(J9VM_GC_COMBINATION_SPEC)
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return (1 == vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndSwapObject(vmThread, destArray, (J9Object **)actualAddress, compareObject, swapObject));
-		} else {
+		}
+		else
+		{
 			preIndexableObjectReadObject(vmThread, destArray, actualAddress);
 			preIndexableObjectStoreObject(vmThread, destArray, actualAddress, swapObject);
 
@@ -1996,7 +2085,8 @@ public:
 			bool result = compareAndSwapObjectImpl(vmThread, actualAddress, compareObject, swapObject, isVolatile);
 			protectIfVolatileAfter(isVolatile, false);
 
-			if (result) {
+			if (result)
+			{
 				postIndexableObjectStoreObject(vmThread, destArray, actualAddress, swapObject);
 			}
 			return result;
@@ -2024,18 +2114,24 @@ public:
 	inlineIndexableObjectCompareAndExchangeObject(J9VMThread *vmThread, j9object_t destArray, UDATA destIndex, j9object_t compareObject, j9object_t swapObject, bool isVolatile = false)
 	{
 		fj9object_t *actualAddress = NULL;
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_32);
-		} else {
-			actualAddress = (fj9object_t*)J9JAVAARRAY_EA(vmThread, destArray, destIndex, UDATA);
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, destArray, destIndex, U_32);
+		}
+		else
+		{
+			actualAddress = (fj9object_t *)J9JAVAARRAY_EA(vmThread, destArray, destIndex, UDATA);
 		}
 
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndExchangeObject(vmThread, destArray, (J9Object **)actualAddress, compareObject, swapObject);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
-		if (j9gc_modron_wrtbar_always == _writeBarrierType) {
+		if (j9gc_modron_wrtbar_always == _writeBarrierType)
+		{
 			return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_compareAndExchangeObject(vmThread, destArray, (J9Object **)actualAddress, compareObject, swapObject);
-		} else {
+		}
+		else
+		{
 			preIndexableObjectReadObject(vmThread, destArray, actualAddress);
 			preIndexableObjectStoreObject(vmThread, destArray, actualAddress, swapObject);
 
@@ -2045,7 +2141,8 @@ public:
 
 			j9object_t result = internalConvertPointerFromToken(resultToken);
 
-			if (result == compareObject) {
+			if (result == compareObject)
+			{
 				postIndexableObjectStoreObject(vmThread, destArray, actualAddress, swapObject);
 			}
 			return result;
@@ -2061,7 +2158,7 @@ public:
 	 * these collectors the objects must be in tenure space.
 	 *
 	 * Note, the stack must be walkable as a GC may occur during this function.
-	 * 
+	 *
 	 * Note, this doesn't handle arrays.
 	 *
 	 * @param vmThread The current vmThread
@@ -2079,11 +2176,13 @@ public:
 	isSATBBarrierEnabled(J9VMThread *vmThread) const
 	{
 #if defined(J9VM_GC_REALTIME)
-		if (usingSATB()) {
-			MM_GCRememberedSetFragment *fragment =  &vmThread->sATBBarrierRememberedSetFragment;
+		if (usingSATB())
+		{
+			MM_GCRememberedSetFragment *fragment = &vmThread->sATBBarrierRememberedSetFragment;
 			MM_GCRememberedSet *parent = fragment->fragmentParent;
 			return (0 != parent->globalFragmentIndex);
-		} else
+		}
+		else
 #endif /* J9VM_GC_REALTIME */
 		{
 			return false;
@@ -2094,10 +2193,12 @@ public:
 	isSATBDoubleBarrierEnabled(J9VMThread *vmThread) const
 	{
 #if defined(J9VM_GC_REALTIME)
-		if (usingSATB()) {
-			MM_GCRememberedSetFragment *fragment =  &vmThread->sATBBarrierRememberedSetFragment;
+		if (usingSATB())
+		{
+			MM_GCRememberedSetFragment *fragment = &vmThread->sATBBarrierRememberedSetFragment;
 			return (0 == fragment->localFragmentIndex);
-		} else
+		}
+		else
 #endif /* J9VM_GC_REALTIME */
 		{
 			return false;
@@ -2206,19 +2307,19 @@ protected:
 	{
 		internalPreReadObject(vmThread, object, srcAddress);
 	}
-	
+
 	/**
 	 * Perform the preRead barrier for a reference slot within an indexable heap object
 	 *
 	 * @param object this is the heap object being read from
 	 * @param sreAddress the address of the slot being read
-	 */	
+	 */
 	VMINLINE void
 	preIndexableObjectReadObject(J9VMThread *vmThread, j9object_t object, fj9object_t *srcAddress)
 	{
 		internalPreReadObject(vmThread, object, srcAddress);
 	}
-	
+
 	/**
 	 * Read a non-object address (pointer to internal VM data) from an object.
 	 * This function is only concerned with moving the actual data. Do not re-implement
@@ -2301,7 +2402,8 @@ protected:
 	readI64Impl(J9VMThread *vmThread, I_64 *srcAddress, bool isVolatile)
 	{
 #if !defined(J9VM_ENV_DATA64)
-		if (isVolatile) {
+		if (isVolatile)
+		{
 			return longVolatileRead(vmThread, (U_64 *)srcAddress);
 		}
 #endif /* J9VM_ENV_DATA64 */
@@ -2320,7 +2422,8 @@ protected:
 	readU64Impl(J9VMThread *vmThread, U_64 *srcAddress, bool isVolatile)
 	{
 #if !defined(J9VM_ENV_DATA64)
-		if (isVolatile) {
+		if (isVolatile)
+		{
 			return longVolatileRead(vmThread, srcAddress);
 		}
 #endif /* J9VM_ENV_DATA64 */
@@ -2367,28 +2470,31 @@ protected:
 	readObjectImpl(J9VMThread *vmThread, fj9object_t *srcAddress, bool isVolatile)
 	{
 		mm_j9object_t result = NULL;
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-			result = internalConvertPointerFromToken((fj9object_t)(UDATA)*(U_32*)srcAddress);
-		} else {
-			result = (mm_j9object_t)*(UDATA*)srcAddress;
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
+			result = internalConvertPointerFromToken((fj9object_t)(UDATA) * (U_32 *)srcAddress);
+		}
+		else
+		{
+			result = (mm_j9object_t) * (UDATA *)srcAddress;
 		}
 		return result;
 	}
-	
+
 	/**
 	 * Called before reading a reference class static slot
 	 *
 	 * @param object - the class object being read from
 	 * @param srcAddress - the address the slot read from
-	 */	
+	 */
 	VMINLINE void
 	preStaticReadObject(J9VMThread *vmThread, J9Class *clazz, j9object_t *srcAddress)
 	{
-		if (j9gc_modron_readbar_none != _readBarrierType) {
+		if (j9gc_modron_readbar_none != _readBarrierType)
+		{
 			vmThread->javaVM->memoryManagerFunctions->J9ReadBarrierClass(vmThread, srcAddress);
 		}
 	}
-	
 
 	/**
 	 * Read a static object field.
@@ -2504,7 +2610,8 @@ protected:
 	storeI64Impl(J9VMThread *vmThread, I_64 *destAddress, I_64 value, bool isVolatile)
 	{
 #if !defined(J9VM_ENV_DATA64)
-		if (isVolatile) {
+		if (isVolatile)
+		{
 			longVolatileWrite(vmThread, (U_64 *)destAddress, (U_64 *)&value);
 			return;
 		}
@@ -2525,7 +2632,8 @@ protected:
 	storeU64Impl(J9VMThread *vmThread, U_64 *destAddress, U_64 value, bool isVolatile)
 	{
 #if !defined(J9VM_ENV_DATA64)
-		if (isVolatile) {
+		if (isVolatile)
+		{
 			longVolatileWrite(vmThread, destAddress, &value);
 			return;
 		}
@@ -2586,10 +2694,13 @@ protected:
 	VMINLINE void
 	storeObjectImpl(J9VMThread *vmThread, fj9object_t *destAddress, mm_j9object_t value, bool isVolatile)
 	{
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
-			*(U_32*)destAddress = (U_32)internalConvertTokenFromPointer(value);
-		} else {
-			*(UDATA*)destAddress = (UDATA)value;
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
+			*(U_32 *)destAddress = (U_32)internalConvertTokenFromPointer(value);
+		}
+		else
+		{
+			*(UDATA *)destAddress = (UDATA)value;
 		}
 	}
 
@@ -2600,9 +2711,12 @@ protected:
 		fj9object_t swapValue = internalConvertTokenFromPointer(swapObject);
 		bool result = true;
 
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
 			result = ((U_32)(UDATA)compareValue == VM_AtomicSupport::lockCompareExchangeU32((U_32 *)destAddress, (U_32)(UDATA)compareValue, (U_32)(UDATA)swapValue));
-		} else {
+		}
+		else
+		{
 			result = ((UDATA)compareValue == VM_AtomicSupport::lockCompareExchange((UDATA *)destAddress, (UDATA)compareValue, (UDATA)swapValue));
 		}
 
@@ -2616,9 +2730,12 @@ protected:
 		fj9object_t swapValue = internalConvertTokenFromPointer(swapObject);
 		fj9object_t result = (fj9object_t)NULL;
 
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread)) {
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
+		{
 			result = (fj9object_t)VM_AtomicSupport::lockCompareExchangeU32((U_32 *)destAddress, (U_32)(UDATA)compareValue, (U_32)(UDATA)swapValue);
-		} else {
+		}
+		else
+		{
 			result = (fj9object_t)VM_AtomicSupport::lockCompareExchange((UDATA *)destAddress, (UDATA)compareValue, (UDATA)swapValue);
 		}
 
@@ -2661,8 +2778,10 @@ protected:
 	VMINLINE static void
 	protectIfVolatileBefore(bool isVolatile, bool isRead)
 	{
-		if (isVolatile) {
-			if (!isRead) {
+		if (isVolatile)
+		{
+			if (!isRead)
+			{
 				VM_AtomicSupport::writeBarrier();
 			}
 		}
@@ -2678,10 +2797,14 @@ protected:
 	VMINLINE static void
 	protectIfVolatileAfter(bool isVolatile, bool isRead)
 	{
-		if (isVolatile) {
-			if (isRead) {
+		if (isVolatile)
+		{
+			if (isRead)
+			{
 				VM_AtomicSupport::readBarrier();
-			} else {
+			}
+			else
+			{
 				VM_AtomicSupport::readWriteBarrier();
 			}
 		}
@@ -2696,10 +2819,12 @@ protected:
 	VMINLINE fj9object_t
 	internalConvertTokenFromPointer(j9object_t pointer)
 	{
-#if defined (OMR_GC_COMPRESSED_POINTERS)
-		if (compressObjectReferences()) {
+#if defined(OMR_GC_COMPRESSED_POINTERS)
+		if (compressObjectReferences())
+		{
 			return (fj9object_t)((UDATA)pointer >> _compressedPointersShift);
-		} else
+		}
+		else
 #endif /* OMR_GC_COMPRESSED_POINTERS */
 		{
 			return (fj9object_t)(UDATA)pointer;
@@ -2715,10 +2840,12 @@ protected:
 	VMINLINE j9object_t
 	internalConvertPointerFromToken(fj9object_t token)
 	{
-#if defined (OMR_GC_COMPRESSED_POINTERS)
-		if (compressObjectReferences()) {
+#if defined(OMR_GC_COMPRESSED_POINTERS)
+		if (compressObjectReferences())
+		{
 			return (mm_j9object_t)((UDATA)token << _compressedPointersShift);
-		} else
+		}
+		else
 #endif /* OMR_GC_COMPRESSED_POINTERS */
 		{
 			return (mm_j9object_t)(UDATA)token;
@@ -2726,7 +2853,6 @@ protected:
 	}
 
 private:
-
 	/**
 	 * Perform the preStore barrier
 	 *
@@ -2741,7 +2867,8 @@ private:
 	VMINLINE void
 	internalPreStoreObject(J9VMThread *vmThread, j9object_t object, fj9object_t *destAddress, j9object_t value)
 	{
-		if (usingSATB()) {
+		if (usingSATB())
+		{
 			internalPreStoreObjectSATB(vmThread, object, destAddress, value);
 		}
 	}
@@ -2760,7 +2887,8 @@ private:
 	VMINLINE void
 	internalStaticPreStoreObject(J9VMThread *vmThread, j9object_t dstClassObject, j9object_t *destAddress, j9object_t value)
 	{
-		if (usingSATB()) {
+		if (usingSATB())
+		{
 			internalStaticPreStoreObjectSATB(vmThread, dstClassObject, destAddress, value);
 		}
 	}
@@ -2778,14 +2906,20 @@ private:
 	{
 #if defined(J9VM_GC_REALTIME)
 		/* Check if the barrier is enabled.  No work if barrier is not enabled */
-		if (isSATBBarrierEnabled(vmThread)) {
+		if (isSATBBarrierEnabled(vmThread))
+		{
 			/* if the double barrier is enabled call OOL */
-			if (isSATBDoubleBarrierEnabled(vmThread)) {
+			if (isSATBDoubleBarrierEnabled(vmThread))
+			{
 				vmThread->javaVM->memoryManagerFunctions->J9WriteBarrierPre(vmThread, object, destAddress, value);
-			} else {
+			}
+			else
+			{
 				j9object_t oldObject = readObjectImpl(vmThread, destAddress, false);
-				if (NULL != oldObject) {
-					if (!isMarked(vmThread, oldObject)) {
+				if (NULL != oldObject)
+				{
+					if (!isMarked(vmThread, oldObject))
+					{
 						vmThread->javaVM->memoryManagerFunctions->J9WriteBarrierPre(vmThread, object, destAddress, value);
 					}
 				}
@@ -2807,14 +2941,20 @@ private:
 	{
 #if defined(J9VM_GC_REALTIME)
 		/* Check if the barrier is enabled.  No work if barrier is not enabled */
-		if (isSATBBarrierEnabled(vmThread)) {
+		if (isSATBBarrierEnabled(vmThread))
+		{
 			/* if the double barrier is enabled call OOL */
-			if (isSATBDoubleBarrierEnabled(vmThread)) {
+			if (isSATBDoubleBarrierEnabled(vmThread))
+			{
 				vmThread->javaVM->memoryManagerFunctions->J9WriteBarrierPreClass(vmThread, dstClassObject, destAddress, value);
-			} else {
+			}
+			else
+			{
 				j9object_t oldObject = *destAddress;
-				if (NULL != oldObject) {
-					if (!isMarked(vmThread, oldObject)) {
+				if (NULL != oldObject)
+				{
+					if (!isMarked(vmThread, oldObject))
+					{
 						vmThread->javaVM->memoryManagerFunctions->J9WriteBarrierPreClass(vmThread, dstClassObject, destAddress, value);
 					}
 				}
@@ -2837,7 +2977,8 @@ private:
 	{
 		J9JavaVM *const javaVM = vmThread->javaVM;
 
-		if (J9_GC_POLICY_METRONOME == javaVM->gcPolicy) {
+		if (J9_GC_POLICY_METRONOME == javaVM->gcPolicy)
+		{
 			UDATA heapMapBits = 0;
 			UDATA heapDelta = (UDATA)object - javaVM->realtimeHeapMapBasePageRounded;
 			UDATA slotIndex = heapDelta >> J9VMGC_SIZECLASSES_LOG_SMALLEST;
@@ -2850,13 +2991,14 @@ private:
 			heapMapBits &= bitMask;
 
 			return 0 != heapMapBits;
-		} else {
+		}
+		else
+		{
 			/* TODO: Inline for SATB Standard Configuration */
 			return 0 != javaVM->memoryManagerFunctions->j9gc_ext_is_marked(vmThread->javaVM, object);
 		}
 	}
 #endif /* J9VM_GC_REALTIME */
-
 
 	/**
 	 * Call after storing an object reference
@@ -2867,7 +3009,8 @@ private:
 	VMINLINE void
 	internalPostStoreObject(J9VMThread *vmThread, j9object_t object, j9object_t value)
 	{
-		switch(_writeBarrierType) {
+		switch (_writeBarrierType)
+		{
 		case j9gc_modron_wrtbar_cardmark_and_oldcheck:
 			internalPostObjectStoreCardTableAndGenerational(vmThread, object, value);
 			break;
@@ -2883,7 +3026,7 @@ private:
 		case j9gc_modron_wrtbar_none:
 		case j9gc_modron_wrtbar_satb:
 		case j9gc_modron_wrtbar_satb_and_oldcheck:
-			//TODO SATB change to handle gencon, decide where to do it in pre/post store
+			// TODO SATB change to handle gencon, decide where to do it in pre/post store
 			break;
 		default:
 			/* Should assert as all real types are handled.  Should never get here
@@ -2896,7 +3039,8 @@ private:
 	VMINLINE void
 	internalPostBatchStoreObject(J9VMThread *vmThread, j9object_t object)
 	{
-		switch(_writeBarrierType) {
+		switch (_writeBarrierType)
+		{
 		case j9gc_modron_wrtbar_cardmark_and_oldcheck:
 			internalPostBatchStoreObjectCardTableAndGenerational(vmThread, object);
 			break;
@@ -2920,7 +3064,7 @@ private:
 			break;
 		}
 	}
-	
+
 	/**
 	 * Perform the preRead barrier for heap object reference slot
 	 * It's common API for both mixed and indexable objects
@@ -2931,7 +3075,8 @@ private:
 	VMINLINE void
 	internalPreReadObject(J9VMThread *vmThread, j9object_t object, fj9object_t *srcAddress)
 	{
-		if (j9gc_modron_readbar_none != _readBarrierType) {
+		if (j9gc_modron_readbar_none != _readBarrierType)
+		{
 			vmThread->javaVM->memoryManagerFunctions->J9ReadBarrier(vmThread, srcAddress);
 		}
 	}
@@ -2949,7 +3094,7 @@ private:
 		UDATA shiftedDelta = objectDelta >> CARD_SIZE_SHIFT;
 
 		/* find the card and dirty it */
-		U_8* card = (U_8*)vmThread->activeCardTableBase + shiftedDelta;
+		U_8 *card = (U_8 *)vmThread->activeCardTableBase + shiftedDelta;
 		*card = (U_8)CARD_DIRTY;
 	}
 
@@ -2962,17 +3107,23 @@ private:
 	static VMINLINE void
 	rememberObject(J9VMThread *vmThread, j9object_t object)
 	{
-#if defined (J9VM_GC_GENERATIONAL)
-		if (atomicSetRemembered(vmThread, object)) {
+#if defined(J9VM_GC_GENERATIONAL)
+		if (atomicSetRemembered(vmThread, object))
+		{
 			J9VMGCSublistFragment *fragment = &vmThread->gcRememberedSet;
-			do {
+			do
+			{
 				UDATA *slot = fragment->fragmentCurrent;
 				UDATA *next = slot + 1;
-				if (next > fragment->fragmentTop) {
-					if (0 != vmThread->javaVM->memoryManagerFunctions->allocateMemoryForSublistFragment(vmThread->omrVMThread,(J9VMGC_SublistFragment*)fragment)) {
+				if (next > fragment->fragmentTop)
+				{
+					if (0 != vmThread->javaVM->memoryManagerFunctions->allocateMemoryForSublistFragment(vmThread->omrVMThread, (J9VMGC_SublistFragment *)fragment))
+					{
 						break;
 					}
-				} else {
+				}
+				else
+				{
 					fragment->fragmentCurrent = next;
 					fragment->count += 1;
 					*slot = (UDATA)object;
@@ -2983,7 +3134,7 @@ private:
 #endif /* J9VM_GC_GENERATIONAL */
 	}
 
-#if defined (J9VM_GC_GENERATIONAL)
+#if defined(J9VM_GC_GENERATIONAL)
 	/**
 	 * Set the remembered but for the object pointer atomically
 	 *
@@ -2995,26 +3146,33 @@ private:
 	{
 		bool result = true;
 
-		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(currentThread)) {
-			volatile U_32* flagsPtr = &(((J9ObjectCompressed*)objectPtr)->clazz);
+		if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(currentThread))
+		{
+			volatile U_32 *flagsPtr = &(((J9ObjectCompressed *)objectPtr)->clazz);
 			U_32 oldFlags = 0;
 			U_32 newFlags = 0;
-			do {
+			do
+			{
 				oldFlags = *flagsPtr;
-				if((oldFlags & J9_OBJECT_HEADER_REMEMBERED_MASK_FOR_TEST) >= J9_OBJECT_HEADER_REMEMBERED_BITS_TO_SET) {
+				if ((oldFlags & J9_OBJECT_HEADER_REMEMBERED_MASK_FOR_TEST) >= J9_OBJECT_HEADER_REMEMBERED_BITS_TO_SET)
+				{
 					/* Remembered state in age was set by somebody else */
 					result = false;
 					break;
 				}
 				newFlags = (oldFlags & ~J9_OBJECT_HEADER_REMEMBERED_MASK_FOR_CLEAR) | J9_OBJECT_HEADER_REMEMBERED_BITS_TO_SET;
 			} while (oldFlags != VM_AtomicSupport::lockCompareExchangeU32(flagsPtr, oldFlags, newFlags));
-		} else {
-			volatile UDATA* flagsPtr = &(((J9ObjectFull*)objectPtr)->clazz);
+		}
+		else
+		{
+			volatile UDATA *flagsPtr = &(((J9ObjectFull *)objectPtr)->clazz);
 			UDATA oldFlags = 0;
 			UDATA newFlags = 0;
-			do {
+			do
+			{
 				oldFlags = *flagsPtr;
-				if((oldFlags & J9_OBJECT_HEADER_REMEMBERED_MASK_FOR_TEST) >= J9_OBJECT_HEADER_REMEMBERED_BITS_TO_SET) {
+				if ((oldFlags & J9_OBJECT_HEADER_REMEMBERED_MASK_FOR_TEST) >= J9_OBJECT_HEADER_REMEMBERED_BITS_TO_SET)
+				{
 					/* Remembered state in age was set by somebody else */
 					result = false;
 					break;
@@ -3032,8 +3190,6 @@ private:
 	{
 		return ((j9gc_modron_wrtbar_satb == _writeBarrierType) || (j9gc_modron_wrtbar_satb_and_oldcheck == _writeBarrierType));
 	}
-
-
 };
 
 #endif /* OBJECTACCESSBARRIERAPI_HPP_ */
