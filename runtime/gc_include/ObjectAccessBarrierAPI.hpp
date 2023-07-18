@@ -50,13 +50,14 @@ inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject)
 {
 	J9Class *clazz = J9OBJECT_CLAZZ(vmThread, srcObject);
 	U_32 *accessCount = J9OAB_MIXEDOBJECT_EA(srcObject, clazz->accessCountOffset, U_32);
-	// printf("My log index increment for %p at %lu with value=%u\n", srcObject, clazz->accessCountOffset, *accessCount);
 	if (*accessCount != UINT32_MAX) ++(*accessCount);
+	// printf("My log index increment for %p at %lu with value=%u\n", srcObject, clazz->accessCountOffset, *accessCount);
 }
 
 inline void IncrementAccessCounterObjHeader(J9VMThread *vmThread, j9object_t srcObject)
 {
 	U_32 *accessCount;
+	// J9ArrayClass *clazz = (J9ArrayClass*)J9OBJECT_CLAZZ(vmThread, srcObject);
 	if (J9VMTHREAD_COMPRESS_OBJECT_REFERENCES(vmThread))
 	{
 		U_32 size = ((J9IndexableObjectContiguousCompressed *)srcObject)->size;
@@ -71,7 +72,11 @@ inline void IncrementAccessCounterObjHeader(J9VMThread *vmThread, j9object_t src
 	}
 
 	if (*accessCount != UINT32_MAX) ++(*accessCount);
-	// printf("My log index increment for %p with value=%u\n", srcObject, *accessCount);
+	// printf("My log index increment for %p with value=%u for class=%.*s\n",
+	// 	srcObject, *accessCount,
+	// 	J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(clazz->componentType->romClass)),
+	// 	J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->componentType->romClass))
+	// );
 }
 
 class MM_ObjectAccessBarrierAPI
