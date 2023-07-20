@@ -47,7 +47,7 @@
 
 #define J9OAB_MIXEDOBJECT_EA(object, offset, type) (type *)(((U_8 *)(object)) + offset)
 
-inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject)
+inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject, int stmt)
 {
 	J9Class *clazz = J9OBJECT_CLAZZ(vmThread, srcObject);
 
@@ -74,10 +74,11 @@ inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject)
 		J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass);
 		if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 		{
-			printf("My log array increment for %p with value=%u for class=%.*s\n",
+			printf("My log array increment for %p with value=%u for class=%.*s from stmt=%d\n",
 				srcObject, *accessCount,
 				J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
-				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass))
+				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
+				stmt
 			);
 		}
 	}
@@ -91,10 +92,12 @@ inline void IncrementAccessCounter(J9VMThread *vmThread, j9object_t srcObject)
 		J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(clazz->romClass);
 		if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 		{
-			printf("My log obj increment for %p at %lu with value=%u for class=%.*s\n",
+			printf("My log obj increment for %p at %lu with value=%u for class=%.*s from stmt=%d\n",
 				srcObject, clazz->accessCountOffset, *accessCount,
 				J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(clazz->romClass)),
-				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->romClass)));
+				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->romClass)),
+				stmt
+			);
 		}
 	}
 }
@@ -573,7 +576,7 @@ public:
 	VMINLINE j9object_t
 	inlineMixedObjectReadObject(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 1);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadObject(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -605,7 +608,7 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreObject(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, j9object_t value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 2);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreObject(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -735,7 +738,7 @@ public:
 	VMINLINE I_32
 	inlineMixedObjectReadI32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 3);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadI32(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -765,7 +768,7 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreI32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, I_32 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 4);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreI32(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -790,7 +793,7 @@ public:
 	VMINLINE U_32
 	inlineMixedObjectReadU32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 5);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadU32(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -820,7 +823,7 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreU32(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, U_32 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 6);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreU32(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -909,7 +912,7 @@ public:
 	VMINLINE I_64
 	inlineMixedObjectReadI64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 7);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadI64(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -939,7 +942,7 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreI64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, I_64 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 8);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreI64(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -964,7 +967,7 @@ public:
 	VMINLINE U_64
 	inlineMixedObjectReadU64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 9);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectReadU64(vmThread, srcObject, srcOffset, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -994,7 +997,7 @@ public:
 	VMINLINE void
 	inlineMixedObjectStoreU64(J9VMThread *vmThread, j9object_t srcObject, UDATA srcOffset, U_64 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcObject);
+		IncrementAccessCounter(vmThread, srcObject, 10);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_mixedObjectStoreU64(vmThread, srcObject, srcOffset, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1468,7 +1471,7 @@ public:
 	VMINLINE I_8
 	inlineIndexableObjectReadI8(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 11);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_8)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1497,7 +1500,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreI8(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, I_8 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 12);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, (I_32)value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1523,7 +1526,7 @@ public:
 	VMINLINE U_8
 	inlineIndexableObjectReadU8(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 13);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_8)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1552,7 +1555,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreU8(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, U_8 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 14);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU8(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1578,7 +1581,7 @@ public:
 	VMINLINE I_16
 	inlineIndexableObjectReadI16(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 15);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_16)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1607,7 +1610,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreI16(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, I_16 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 16);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1633,7 +1636,7 @@ public:
 	VMINLINE U_16
 	inlineIndexableObjectReadU16(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 17);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_16)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1662,7 +1665,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreU16(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, U_16 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 18);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU16(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1688,7 +1691,7 @@ public:
 	VMINLINE I_32
 	inlineIndexableObjectReadI32(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 19);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (I_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1717,7 +1720,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreI32(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, I_32 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 20);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1743,7 +1746,7 @@ public:
 	VMINLINE U_32
 	inlineIndexableObjectReadU32(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 21);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return (U_32)vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1772,7 +1775,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreU32(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, U_32 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 22);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI32(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1858,7 +1861,7 @@ public:
 	VMINLINE I_64
 	inlineIndexableObjectReadI64(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 23);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadI64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1887,7 +1890,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreI64(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, I_64 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 24);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreI64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1913,7 +1916,7 @@ public:
 	VMINLINE U_64
 	inlineIndexableObjectReadU64(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 25);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadU64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -1942,7 +1945,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreU64(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, U_64 value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 26);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreU64(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -2028,7 +2031,7 @@ public:
 	VMINLINE j9object_t
 	inlineIndexableObjectReadObject(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 27);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		return vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableReadObject(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
@@ -2067,7 +2070,7 @@ public:
 	VMINLINE void
 	inlineIndexableObjectStoreObject(J9VMThread *vmThread, j9object_t srcArray, UDATA srcIndex, j9object_t value, bool isVolatile = false)
 	{
-		IncrementAccessCounter(vmThread, srcArray);
+		IncrementAccessCounter(vmThread, srcArray, 28);
 #if defined(J9VM_GC_ALWAYS_CALL_OBJECT_ACCESS_BARRIER)
 		vmThread->javaVM->memoryManagerFunctions->j9gc_objaccess_indexableStoreObject(vmThread, (J9IndexableObject *)srcArray, (I_32)srcIndex, value, isVolatile);
 #elif defined(J9VM_GC_COMBINATION_SPEC)
