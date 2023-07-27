@@ -138,17 +138,6 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 			J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass);
 			if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 			{
-				//printf(
-				fprintf(_dump_fout,
-					"My log array: th=%zu, class=%.*s, ptr=%p, cnt=%u, len=%u, size=%lu\n",
-					std::hash<std::thread::id>()(std::this_thread::get_id()),
-					J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
-					J9UTF8_DATA(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
-					objectPtr,
-					*accessCount,
-					arrayLen,
-					objectHeaderSize + arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz));
-
 				printf("My log array: th=%zu, class=%.*s, ptr=%p, cnt=%u, len=%u, size=%lu\n",
 					std::hash<std::thread::id>()(std::this_thread::get_id()),
 					J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
@@ -158,6 +147,17 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 					arrayLen,
 					objectHeaderSize + arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz));
 			}
+
+			//printf(
+			fprintf(_dump_fout,
+				"My log array: th=%zu, class=%.*s, ptr=%p, cnt=%u, len=%u, size=%lu\n",
+				std::hash<std::thread::id>()(std::this_thread::get_id()),
+				J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
+				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass)),
+				objectPtr,
+				*accessCount,
+				arrayLen,
+				objectHeaderSize + arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz));
 		}
 		else
 		{
@@ -171,16 +171,6 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 			J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(clazz->romClass);
 			if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 			{
-				//printf(
-				fprintf(_dump_fout,
-					"My log obj: th=%zu, class=%.*s, ptr=%p, cnt=%u, size=%zu\n",
-					std::hash<std::thread::id>()(std::this_thread::get_id()),
-					J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(clazz->romClass)),
-					J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->romClass)),
-					objectPtr,
-					*accessCount,
-					objectHeaderSize + clazz->totalInstanceSize);
-
 				printf("My log obj: th=%zu, class=%.*s, ptr=%p, cnt=%u, size=%zu\n",
 					std::hash<std::thread::id>()(std::this_thread::get_id()),
 					J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(clazz->romClass)),
@@ -189,6 +179,16 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 					*accessCount,
 					objectHeaderSize + clazz->totalInstanceSize);
 			}
+
+			//printf(
+			fprintf(_dump_fout,
+				"My log obj: th=%zu, class=%.*s, ptr=%p, cnt=%u, size=%zu\n",
+				std::hash<std::thread::id>()(std::this_thread::get_id()),
+				J9UTF8_LENGTH(J9ROMCLASS_CLASSNAME(clazz->romClass)),
+				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->romClass)),
+				objectPtr,
+				*accessCount,
+				objectHeaderSize + clazz->totalInstanceSize);
 		}
 	}
 }
