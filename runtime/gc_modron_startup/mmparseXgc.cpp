@@ -1156,6 +1156,19 @@ j9gc_initialize_parse_gc_colon(J9JavaVM *javaVM, char **scan_start)
 		goto _exit;
 	}
 
+	// My log dump count frequency parameter
+	if(try_scan(scan_start, "dumpObjCountFreq=")) {
+		UDATA value;
+		if(!scan_udata_helper(javaVM, scan_start, &value, "dumpObjCountFreq=")) {
+			goto _error;
+		}
+
+		if (value == 0) extensions->dumpObjCountFreq = - 1;
+		else extensions->dumpObjCountFreq = value;
+
+		goto _exit;
+	}
+
 	if(try_scan(scan_start, "sweepchunksize=")) {
 		if(!scan_udata_helper(javaVM, scan_start, &extensions->parSweepChunkSize, "sweepchunksize=")) {
 			goto _error;

@@ -80,9 +80,16 @@ MM_MarkingDelegate::initialize(MM_EnvironmentBase *env, MM_MarkingScheme *markin
 	_dump_last_time = _dump_last_id = _dump_now = 0;
 
 	std::ignore = tmpnam(file_name);
-	// printf("My log: initialize %s, this=%p\n", file_name, this);
 	_dump_ptr.reset(fopen(file_name, "w"));
+	if (_extensions->dumpObjCountFreq)
+	{
+		// set to zero at config level to disable turns into -1
+		// enabled by default with zero
+		_dump_freq = _extensions->dumpObjCountFreq == -1 ? 0 : _extensions->dumpObjCountFreq;
+	}
 	_dump_fout = _dump_ptr.get();
+
+	printf("My log: initialize %s, this=%p with dump_freq=%d\n", file_name, this, _dump_freq);
 
 	return true;
 }
@@ -304,22 +311,25 @@ MM_MarkingDelegate::mainSetupForGC(MM_EnvironmentBase *env)
 	_collectStringConstantsEnabled = _extensions->collectStringConstants;
 
 	auto cur_time = std::time(nullptr);
-	if (cur_time - _dump_last_time > 10)
+	if (_dump_freq && (cur_time - _dump_last_time > _dump_freq))
 	{
 		_dump_now = true;
 		_dump_last_time = cur_time;
 		// printf(
 		fprintf(_dump_fout,
-			"\n My log: Dump Snapshot #%d\n", _dump_last_id++);
+			"\n My log: Dump Snapshot #%d\n", _dump_last_id);
 		printf("\n My log: Dump Snapshot #%d\n", _dump_last_id++);
 	}
 	else
 	{
 		_dump_now = false;
-		// printf(
-		fprintf(_dump_fout,
-			"\n My log: Skipping Snapshot #%d\n", _dump_last_id);
-		printf("\n My log: Skipping Snapshot #%d\n", _dump_last_id);
+		if (_dump_freq)
+		{
+			// printf(
+			fprintf(_dump_fout,
+				"\n My log: Skipping Snapshot #%d\n", _dump_last_id);
+			printf("\n My log: Skipping Snapshot #%d\n", _dump_last_id);
+		}
 	}
 }
 

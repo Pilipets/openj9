@@ -75,6 +75,7 @@ private:
 	int _dump_last_id = 0;
 	bool _dump_now = false;
 	FILE* _dump_fout = nullptr;
+	int _dump_freq = 10;
 	std::unique_ptr<FILE, FILECloser> _dump_ptr;
 
 protected:
