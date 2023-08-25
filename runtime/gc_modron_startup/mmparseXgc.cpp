@@ -1169,6 +1169,16 @@ j9gc_initialize_parse_gc_colon(J9JavaVM *javaVM, char **scan_start)
 		goto _exit;
 	}
 
+	if (try_scan(scan_start, "coldDoCountersDecay")) {
+		extensions->coldDoCountersDecay = true;
+		goto _exit;
+	}
+
+	if (try_scan(scan_start, "coldDoColdMetric")) {
+		extensions->coldDoColdMetric = true;
+		goto _exit;
+	}
+
 	if(try_scan(scan_start, "sweepchunksize=")) {
 		if(!scan_udata_helper(javaVM, scan_start, &extensions->parSweepChunkSize, "sweepchunksize=")) {
 			goto _error;

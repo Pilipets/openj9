@@ -40,6 +40,8 @@
 #include <ctime>
 #include <cstdio>
 #include <memory>
+#include <atomic>
+#include <cmath>
 
 struct FILECloser {
     void operator()(FILE* file) const {
@@ -71,11 +73,24 @@ private:
 	volatile bool _anotherClassMarkLoopIteration;	/**< Used in completeClassMark for another loop iteration request (set by the Main thread)*/
 #endif /* defined(J9VM_GC_DYNAMIC_CLASS_UNLOADING) */
 
-	std::time_t _dump_last_time = 0;
-	int _dump_last_id = 0;
-	bool _dump_now = false;
-	FILE* _dump_fout = nullptr;
-	int _dump_freq = 10;
+	// My log: cold metric + dump params
+	//
+	/*double _cold_decay_factor;
+	bool _cold_do_counters_decay;
+
+	std::atomic<uint32_t> _cold_access_metric;
+	bool _cold_do_cold_metric;
+
+	std::atomic<size_t> _cold_max_cache_size;
+	std::atomic<size_t> _cold_cache_size;
+	std::atomic<size_t> _cold_total_size;*/
+
+	std::time_t _dump_last_time;
+	int _dump_last_id;
+	bool _dump_now;
+	int _dump_skipped_dumps;
+	FILE* _dump_fout;
+	int _dump_freq;
 	std::unique_ptr<FILE, FILECloser> _dump_ptr;
 
 protected:

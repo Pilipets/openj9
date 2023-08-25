@@ -76,8 +76,13 @@ MM_MarkingDelegate::initialize(MM_EnvironmentBase *env, MM_MarkingScheme *markin
 	_markMap = (_extensions->dynamicClassUnloading != MM_GCExtensions::DYNAMIC_CLASS_UNLOADING_NEVER) ? markingScheme->getMarkMap() : NULL;
 #endif /* defined(J9VM_GC_DYNAMIC_CLASS_UNLOADING) */
 
+	// dump stats
+	//
 	char file_name[40];
-	_dump_last_time = _dump_last_id = _dump_now = 0;
+	_dump_last_time = 0;
+	_dump_last_id = 0;
+	_dump_now = false;
+	_dump_skipped_dumps = 0;
 
 	std::ignore = tmpnam(file_name);
 	_dump_ptr.reset(fopen(file_name, "w"));
@@ -87,10 +92,23 @@ MM_MarkingDelegate::initialize(MM_EnvironmentBase *env, MM_MarkingScheme *markin
 		// enabled by default with zero
 		_dump_freq = _extensions->dumpObjCountFreq == -1 ? 0 : _extensions->dumpObjCountFreq;
 	}
+	else
+	{
+		_dump_freq = 10;
+	}
 	_dump_fout = _dump_ptr.get();
 
-	printf("My log: initialize %s, this=%p with dump_freq=%d\n", file_name, this, _dump_freq);
+	// cold metric
+	//
+	/*_cold_max_cache_size = 0;
+	_cold_cache_size = 0;
+	_cold_total_size = 0;
 
+	_cold_decay_factor = 0.9;
+	_cold_do_counters_decay = _extensions->coldDoCountersDecay; // false by default
+	_cold_do_cold_metric = _extensions->coldDoColdMetric; // false by default*/
+
+	printf("My log: initialize %s, this=%p with dump_freq=%d\n", file_name, this, _dump_freq);
 	return true;
 }
 
@@ -142,7 +160,7 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 			// ((J9ArrayClass*)clazz)->componentType->romClass->romSize
 			// ((J9ArrayClass*)clazz)->componentType->totalInstanceSize
 
-			J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass);
+			/*J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(((J9ArrayClass*)clazz)->componentType->romClass);
 			if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 			{
 				printf("My log array: th=%zu, class=%.*s, ptr=%p, cnt=%u, len=%u, size=%lu\n",
@@ -153,7 +171,9 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 					*accessCount,
 					arrayLen,
 					objectHeaderSize + arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz));
-			}
+			}*/
+
+			objectHeaderSize += arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz);
 
 			//printf(
 			fprintf(_dump_fout,
@@ -164,7 +184,7 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 				objectPtr,
 				*accessCount,
 				arrayLen,
-				objectHeaderSize + arrayLen * J9ARRAYCLASS_GET_STRIDE(clazz));
+				objectHeaderSize);
 		}
 		else
 		{
@@ -175,7 +195,7 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 			objectHeaderSize = compressObjectReferences ? sizeof(J9ObjectCompressed) : sizeof(J9ObjectFull);
 			
 			// clazz->romClass->romSize,
-			J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(clazz->romClass);
+			/*J9UTF8* romClassName = J9ROMCLASS_CLASSNAME(clazz->romClass);
 			if (J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "InnerClass") || J9UTF8_LITERAL_EQUALS(J9UTF8_DATA(romClassName), J9UTF8_LENGTH(romClassName), "MainClass"))
 			{
 				printf("My log obj: th=%zu, class=%.*s, ptr=%p, cnt=%u, size=%zu\n",
@@ -185,7 +205,9 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 					objectPtr,
 					*accessCount,
 					objectHeaderSize + clazz->totalInstanceSize);
-			}
+			}*/
+
+			objectHeaderSize += clazz->totalInstanceSize;
 
 			//printf(
 			fprintf(_dump_fout,
@@ -195,8 +217,21 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 				J9UTF8_DATA(J9ROMCLASS_CLASSNAME(clazz->romClass)),
 				objectPtr,
 				*accessCount,
-				objectHeaderSize + clazz->totalInstanceSize);
+				objectHeaderSize);
 		}
+
+		uint8_t age = *accessCount >> 28;
+		if (age != 0xF) ++age;
+		*accessCount = (*accessCount & 0x0FFFFFFF) | (age << 28);
+
+		/*if (_cold_do_cold_metric)
+		{
+			_cold_total_size += objectHeaderSize;
+		}
+		if (_cold_do_counters_decay)
+		{
+			*accessCount = static_cast<U_32>(*accessCount * _cold_decay_factor);
+		}*/
 	}
 }
 
@@ -311,9 +346,30 @@ MM_MarkingDelegate::mainSetupForGC(MM_EnvironmentBase *env)
 	_collectStringConstantsEnabled = _extensions->collectStringConstants;
 
 	auto cur_time = std::time(nullptr);
-	if (_dump_freq && (cur_time - _dump_last_time > _dump_freq))
+	if (_dump_freq && ((cur_time - _dump_last_time > _dump_freq) || _dump_skipped_dumps >= _dump_freq))
 	{
+		/*if (_cold_do_cold_metric)
+		{
+			// adaptive counters decay logic
+			//
+			if (_cold_do_counters_decay)
+			{
+				if (_cold_cache_size < _cold_max_cache_size * 0.8)
+				{
+					_cold_decay_factor = std::max(0.4, _cold_decay_factor - 0.05);
+				}
+				else
+				{
+					_cold_decay_factor = std::min(0.95, _cold_decay_factor + 0.05);
+				}
+			}
+
+			_cold_max_cache_size = static_cast<size_t>(0.25 * _cold_total_size); // for now, let's just take 25% of the application memory footprint
+			_cold_cache_size = _cold_total_size = 0;
+		}*/
+
 		_dump_now = true;
+		_dump_skipped_dumps = 0;
 		_dump_last_time = cur_time;
 		// printf(
 		fprintf(_dump_fout,
@@ -323,6 +379,7 @@ MM_MarkingDelegate::mainSetupForGC(MM_EnvironmentBase *env)
 	else
 	{
 		_dump_now = false;
+		++_dump_skipped_dumps += 1;
 		if (_dump_freq)
 		{
 			// printf(
