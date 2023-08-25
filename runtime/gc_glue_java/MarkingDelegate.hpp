@@ -88,6 +88,7 @@ private:
 	std::time_t _dump_last_time;
 	int _dump_last_id;
 	bool _dump_now;
+	//bool _dump_global_age_positive;
 	int _dump_skipped_dumps;
 	FILE* _dump_fout;
 	int _dump_freq;
