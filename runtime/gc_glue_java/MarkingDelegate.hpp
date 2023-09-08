@@ -90,6 +90,7 @@ private:
 	bool _dump_now;
 	//bool _dump_global_age_positive;
 	int _dump_skipped_dumps;
+	int _dump_time_elapsed;
 	FILE* _dump_fout;
 	int _dump_freq;
 	std::unique_ptr<FILE, FILECloser> _dump_ptr;

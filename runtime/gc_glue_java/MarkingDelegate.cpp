@@ -30,6 +30,7 @@
 #include "j2sever.h"
 #include "omrcomp.h"
 #include "omrsrp.h"
+#include <cmath>
 
 #include "ClassHeapIterator.hpp"
 #include "ClassLoaderIterator.hpp"
@@ -83,6 +84,7 @@ MM_MarkingDelegate::initialize(MM_EnvironmentBase *env, MM_MarkingScheme *markin
 	_dump_last_id = 0;
 	_dump_now = false;
 	_dump_skipped_dumps = 0;
+	_dump_time_elapsed = 0;
 	// _dump_global_age_positive = 0;
 
 	std::ignore = tmpnam(file_name);
@@ -225,6 +227,7 @@ void MM_MarkingDelegate::dumpObjectCounter(omrobjectptr_t objectPtr, bool compre
 
 				uint8_t age = *accessCount >> 28;
 				if (age != 0xF) ++age;
+				// *accessCount = (*accessCount & 0x0FFFFFFF) * exp(-0.05 * _dump_time_elapsed);
 				*accessCount = (*accessCount & 0x0FFFFFFF) | (age << 28);
 		}
 
@@ -377,6 +380,7 @@ MM_MarkingDelegate::mainSetupForGC(MM_EnvironmentBase *env)
 		// _dump_global_age_positive = !_dump_global_age_positive;
 		_dump_now = true;
 		_dump_skipped_dumps = 0;
+		_dump_time_elapsed = cur_time - _dump_last_time;
 		_dump_last_time = cur_time;
 		// printf(
 		fprintf(_dump_fout,
